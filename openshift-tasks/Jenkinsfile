@@ -113,8 +113,9 @@ podTemplate(
         echo "Switching Production application to ${destApp}."
         // TBD: Execute switch
       }
+      */
     }
-    */
+    
   }
 }
 
