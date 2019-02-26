@@ -146,7 +146,7 @@ podTemplate(
       
       stage('Switch over to new Version') {
         echo "Switching Production application to ${destApp}."
-        sh 'oc patch route tasks -n $prodProject -p \'{"spec":{"to":{"name":"' + destApp + '"}}}\''
+        sh "oc patch route tasks -n ${prodProject} -p '{\"spec\":{\"to\":{\"name\":\"${destApp}\"}}}'"
       }
     }
     
