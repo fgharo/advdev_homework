@@ -41,7 +41,7 @@ podTemplate(
       // Do not run tests in this step
       stage('Build war') {
         echo "Building version ${devTag}"
-		sh "${mvnCmd} versions:set ${devTag}" 
+		sh "${mvnCmd} versions:set -DnewVersion=${devTag}" 
         sh "${mvnCmd} clean package -DskipTests" 
       }
 
