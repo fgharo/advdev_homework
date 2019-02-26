@@ -14,12 +14,6 @@ podTemplate(
     )
   ]
 ) {
-
-  def version		= ""
-  def devTag		= ""
-  def prodTag		= ""
-
-
   node('skopeo-pod') {
     // Define Maven Command to point to the correct
     // settings for our Nexus installation
@@ -36,12 +30,12 @@ podTemplate(
       // and not inside the scope of a stage - otherwise they would not
       // be accessible from other stages.
       // Extract version from the pom.xml
-      version = getVersionFromPom("pom.xml")
+      def version = getVersionFromPom("pom.xml")
 
       // TBD Set the tag for the development image: version + build number
-      devTag  = version + env.BUILD_NUMBER
+      def devTag  = "${version}- ${env.BUILD_NUMBER}"
       // Set the tag for the production image: version
-      prodTag = version
+      def prodTag = version
 
       // Using Maven build the war file
       // Do not run tests in this step
