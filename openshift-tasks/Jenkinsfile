@@ -33,7 +33,7 @@ podTemplate(
       def version = getVersionFromPom("pom.xml")
 
       // TBD Set the tag for the development image: version + build number
-      def devTag  = "${version}- ${env.BUILD_NUMBER}"
+      def devTag  = "${version}-${env.BUILD_NUMBER}"
       // Set the tag for the production image: version
       def prodTag = version
 
@@ -41,8 +41,8 @@ podTemplate(
       // Do not run tests in this step
       stage('Build war') {
         echo "Building version ${devTag}"
-		sh "${mvnCmd} set:version ${devTag}" 
-        sh "${mvnCmd} package -DskipTests" 
+		sh "${mvnCmd} versions:set ${devTag}" 
+        sh "${mvnCmd} clean package -DskipTests" 
       }
 
       // TBD: The next two stages should run in parallel
