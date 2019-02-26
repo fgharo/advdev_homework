@@ -36,12 +36,19 @@ podTemplate(
       def devTag  = "${version}-${env.BUILD_NUMBER}"
       // Set the tag for the production image: version
       def prodTag = version
+      
+      def devProject  = "${GUID}-tasks-dev"
+	  def prodProject = "${GUID}-tasks-prod"
 
       // Using Maven build the war file
       // Do not run tests in this step
       stage('Build war') {
         echo "Building version ${devTag}"
-		sh "${mvnCmd} versions:set -DnewVersion=${devTag}"
+		/*
+		When are we expected to change the version of the pom so that way what gets stored in an artifactory is SNAPSHOT, RC, etc.?
+		What good are the oc tags later on, devTag and prodTag?
+			sh "${mvnCmd} versions:set -DnewVersion=${devTag}"
+		*/
         sh "${mvnCmd} clean package -DskipTests" 
       }
       
@@ -66,21 +73,28 @@ podTemplate(
         echo "Publish to Nexus"
 		sh "${mvnCmd} deploy -DskipTests -DaltDeploymentRepository=nexus::default::http://nexus3.gpte-hw-cicd.svc.cluster.local:8081/repository/releases"
       }
-	/*
+	
       // Build the OpenShift Image in OpenShift and tag it.
       stage('Build and Tag OpenShift Image') {
         echo "Building OpenShift container image tasks:${devTag}"
-
+		sh "oc start-build bc/tasks --from-file=http://nexus3.gpte-hw-cicd.svc.cluster.local:8081/repository/releases/org/jboss/quickstarts/eap/tasks/${version}/tasks-${version}.war --follow -n ${devProject}"
         // TBD: Build Image, tag Image
+        sh "oc tag tasks:latest tasks:${devTag} -n ${devProject}"
+        
       }
-
+/*
       // Deploy the built image to the Development Environment.
       stage('Deploy to Dev') {
         echo "Deploying container image to Development Project"
-
+		sh "oc rollout latest tasks"
         // TBD: Deploy to development Project
         //      Set Image, Set VERSION
         //      Make sure the application is running and ready before proceeding
+        echo "Waiting for ReplicationController tasks-${dc_version} to be ready"
+        while (rc.spec.replicas != rc.status.readyReplicas) {
+            sleep 5
+            rc = openshift.selector("rc", "tasks-${dc_version}").object()
+        }
       }
 
       // Copy Image to Nexus container registry
