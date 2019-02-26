@@ -46,12 +46,12 @@ podTemplate(
       }
       
       stage('Quality Checks'){
-				parallel firstBranch: {
+				parallel "Unit Tests": {
 					 stage('Unit Tests') {
 				        echo "Running Unit Tests"
 						sh "${mvnCmd} test"
 				     }
-				}, secondBranch: {
+				}, "Sonar Code Analysis": {
 					// Using Maven to call SonarQube for Code Analysis
 				    stage('Code Analysis') {
 				        echo "Running Code Analysis"
