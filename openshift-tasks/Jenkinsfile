@@ -82,21 +82,25 @@ podTemplate(
         sh "oc tag tasks:latest tasks:${devTag} -n ${devProject}"
         
       }
-/*
+
       // Deploy the built image to the Development Environment.
       stage('Deploy to Dev') {
         echo "Deploying container image to Development Project"
-		sh "oc rollout latest tasks"
-        // TBD: Deploy to development Project
-        //      Set Image, Set VERSION
-        //      Make sure the application is running and ready before proceeding
+        sh "oc set env dc/tasks VERSION='${devTag} (tasks-dev)' -n ${devProject}"
+        sh "oc rollout latest tasks -n ${devProject}"
+        
+        def dc_version = sh(returnStdout: true, script: "oc get dc tasks --template={{.status.latestVersion}} -n ${devProject}").trim()
         echo "Waiting for ReplicationController tasks-${dc_version} to be ready"
-        while (rc.spec.replicas != rc.status.readyReplicas) {
+        def readyReplicas = sh(returnStdout: true, script: "oc get rc tasks-${dc_version} --template={{.status.readyReplicas}} -n ${devProject}").trim()
+        def expectedReplicas = sh(returnStdout: true, script: "oc get rc tasks-${dc_version} --template={{.status.replicas}} -n ${devProject}").trim()
+        
+        while (readyReplicas != expectedReplicas) {
             sleep 5
-            rc = openshift.selector("rc", "tasks-${dc_version}").object()
+            readyReplicas = sh(returnStdout: true, script: "oc get rc tasks-${dc_version} --template={{.status.readyReplicas}} -n ${devProject}").trim()
+            expectedReplicas = sh(returnStdout: true, script: "oc get rc tasks-${dc_version} --template={{.status.replicas}} -n ${devProject}").trim()
         }
       }
-
+/*
       // Copy Image to Nexus container registry
       stage('Copy Image to Nexus container registry') {
         echo "Copy image to Nexus container registry"
@@ -112,6 +116,7 @@ podTemplate(
       def activeApp = ""
 
       stage('Blue/Green Production Deployment') {
+      	sh "oc set env dc/tasks VERSION='${devTag} (tasks-dev)'"
         // TBD: Determine which application is active
         //      Set Image, Set VERSION
         //      Deploy into the other application
