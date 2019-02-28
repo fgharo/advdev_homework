@@ -87,7 +87,7 @@ podTemplate(
       stage('Deploy to Dev') {
         echo "Deploying container image to Development Project"       
         sh "oc set env dc/tasks VERSION='${devTag} (tasks-dev)' -n ${devProject}"
-        sh "oc set image dc/tasks tasks=docker-registry.default.svc:5000/${devProject}/tasks:${devTag}"
+        sh "oc set image dc/tasks tasks=docker-registry.default.svc:5000/${devProject}/tasks:${devTag} -n ${devProject}"
         sh "oc rollout latest tasks -n ${devProject}"
         
         def dc_version = sh(returnStdout: true, script: "oc get dc tasks --template={{.status.latestVersion}} -n ${devProject}").trim()
