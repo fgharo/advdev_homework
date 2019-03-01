@@ -19,29 +19,19 @@ podTemplate(
     // settings for our Nexus installation
     def mvnCmd = "mvn -s ../nexus_settings.xml"
 
-    // Checkout Source Code.
     stage('Checkout Source') {
       checkout scm
     }
 
-    // Build the Tasks Service
     dir('openshift-tasks') {
-      // The following variables need to be defined at the top level
-      // and not inside the scope of a stage - otherwise they would not
-      // be accessible from other stages.
-      // Extract version from the pom.xml
       def version = getVersionFromPom("pom.xml")
 
-      // TBD Set the tag for the development image: version + build number
       def devTag  = "${version}-${env.BUILD_NUMBER}"
-      // Set the tag for the production image: version
       def prodTag = version
       
       def devProject  = "${GUID}-tasks-dev"
 	  def prodProject = "${GUID}-tasks-prod"
 
-      // Using Maven build the war file
-      // Do not run tests in this step
       stage('Build war') {
         echo "Building version ${devTag}"
 		/*
@@ -55,49 +45,38 @@ podTemplate(
       stage('Quality Checks'){
 				parallel "Unit Tests": {
 					 stage('Unit Tests') {
-				        echo "Running Unit Tests"
 						sh "${mvnCmd} test"
 				     }
 				}, "Sonar Code Analysis": {
-					// Using Maven to call SonarQube for Code Analysis
 				    stage('Code Analysis') {
-				        echo "Running Code Analysis"
 						sh "${mvnCmd} sonar:sonar -DskipTests -Dsonar.host.url=http://sonarqube-gpte-hw-cicd.apps.na311.openshift.opentlc.com/ -Dsonar.projectName=${JOB_BASE_NAME}-${devTag}"
 				    }
 				}
 	 }
 	  
-
-      // Publish the built war file to Nexus
       stage('Publish to Nexus') {
-        echo "Publish to Nexus"
 		sh "${mvnCmd} deploy -DskipTests -DaltDeploymentRepository=nexus::default::http://nexus3.gpte-hw-cicd.svc.cluster.local:8081/repository/releases"
       }
 	
-      // Build the OpenShift Image in OpenShift and tag it.
       stage('Build and Tag OpenShift Image') {
         sh "oc project ${devProject}"
         echo "Building OpenShift container image tasks:${devTag}"
 		sh "oc start-build bc/tasks --from-file=http://nexus3.gpte-hw-cicd.svc.cluster.local:8081/repository/releases/org/jboss/quickstarts/eap/tasks/${version}/tasks-${version}.war --follow"
-        // TBD: Build Image, tag Image
         sh "oc tag tasks:latest tasks:${devTag}"
         
       }
 
-      // Deploy the built image to the Development Environment.
       stage('Deploy to Dev') {
-      	sh "oc project ${devProject}"   
-        echo "Deploying container image to Development Project"  
-          
+      	sh "oc project ${devProject}"             
         sh "oc set env dc/tasks VERSION='${devTag} (tasks-dev)'"
         sh "oc set image dc/tasks tasks=docker-registry.default.svc:5000/${devProject}/tasks:${devTag}"
+        
         sh "oc rollout latest tasks"
         
         def dc_version = sh(returnStdout: true, script: "oc get dc tasks --template={{.status.latestVersion}}").trim()
         echo "Waiting for ReplicationController tasks-${dc_version} to be ready"
         def readyReplicas = sh(returnStdout: true, script: "oc get rc tasks-${dc_version} --template={{.status.readyReplicas}}").trim()
         def expectedReplicas = sh(returnStdout: true, script: "oc get rc tasks-${dc_version} --template={{.status.replicas}}").trim()
-        
         while (readyReplicas != expectedReplicas) {
             sleep 5
             readyReplicas = sh(returnStdout: true, script: "oc get rc tasks-${dc_version} --template={{.status.readyReplicas}}").trim()
@@ -105,19 +84,14 @@ podTemplate(
         }
       }
 
-      // Copy Image to Nexus container registry
       stage('Copy Image to Nexus container registry') {
         sh "oc project ${devProject}"
-        echo "Copy image to Nexus container registry"
         sh "skopeo copy --src-tls-verify=false --dest-tls-verify=false --src-creds openshift:\$(oc whoami -t) --dest-creds admin:redhat docker://docker-registry.default.svc.cluster.local:5000/${devProject}/tasks:${devTag} docker://nexus-registry.gpte-hw-cicd.svc.cluster.local:5000/tasks:${devTag}"
 
-        // Tag the built image with the production tag.
         sh "oc project ${prodProject}"
         sh "oc tag ${devProject}/tasks:${devTag} ${devProject}/tasks:${prodTag}"
       }
 
-      // Blue/Green Deployment into Production
-      // -------------------------------------
       def destApp   = "tasks-green"
       def activeApp = ""
 
@@ -133,10 +107,9 @@ podTemplate(
 		 sh "oc set image dc/${destApp} ${destApp}=docker-registry.default.svc:5000/${devProject}/tasks:${prodTag}"
 		 sh "oc set env dc/tasks-blue VERSION='${prodTag} (tasks-blue)'"
          sh "oc set env dc/tasks-green VERSION='${prodTag} (tasks-green)'"
-  					 
   		 sh "oc delete configmap ${destApp}-config --ignore-not-found=true"
 		 sh "oc create configmap ${destApp}-config --from-file=./configuration/application-users.properties --from-file=./configuration/application-roles.properties"
-
+		 
          sh "oc rollout latest ${destApp}"
         
          def dc_version = sh(returnStdout: true, script: "oc get dc ${destApp} --template={{.status.latestVersion}}").trim()
@@ -161,9 +134,11 @@ podTemplate(
   }
 }
 
-// Convenience Functions to read version from the pom.xml
-// Do not change anything below this line.
+
+
+// Convenience Functions 
 // --------------------------------------------------------
+
 def getVersionFromPom(pom) {
   def matcher = readFile(pom) =~ '<version>(.+)</version>'
   matcher ? matcher[0][1] : null
