@@ -75,12 +75,11 @@ podTemplate(
         
         def dc_version = sh(returnStdout: true, script: "oc get dc tasks --template={{.status.latestVersion}}").trim()
         echo "Waiting for ReplicationController tasks-${dc_version} to be ready"
-        def readyReplicas = sh(returnStdout: true, script: "oc get rc tasks-${dc_version} --template={{.status.readyReplicas}}").trim()
-        def expectedReplicas = sh(returnStdout: true, script: "oc get rc tasks-${dc_version} --template={{.status.replicas}}").trim()
-        while (readyReplicas != expectedReplicas) {
+        while (
+			sh(returnStdout: true, script: "oc get rc tasks-${dc_version} --template={{.status.readyReplicas}}").trim() != 
+			sh(returnStdout: true, script: "oc get rc tasks-${dc_version} --template={{.status.replicas}}").trim()
+		){
             sleep 5
-            readyReplicas = sh(returnStdout: true, script: "oc get rc tasks-${dc_version} --template={{.status.readyReplicas}}").trim()
-            expectedReplicas = sh(returnStdout: true, script: "oc get rc tasks-${dc_version} --template={{.status.replicas}}").trim()
         }
       }
 
@@ -114,13 +113,11 @@ podTemplate(
         
          def dc_version = sh(returnStdout: true, script: "oc get dc ${destApp} --template={{.status.latestVersion}}").trim()
          echo "Waiting for ReplicationController ${destApp}-${dc_version} to be ready"
-         def readyReplicas = sh(returnStdout: true, script: "oc get rc ${destApp}-${dc_version} --template={{.status.readyReplicas}}").trim()
-         def expectedReplicas = sh(returnStdout: true, script: "oc get rc ${destApp}-${dc_version} --template={{.status.replicas}}").trim()
-        
-         while (readyReplicas != expectedReplicas) {
+         while (
+         	sh(returnStdout: true, script: "oc get rc ${destApp}-${dc_version} --template={{.status.readyReplicas}}").trim() != 
+         	sh(returnStdout: true, script: "oc get rc ${destApp}-${dc_version} --template={{.status.replicas}}").trim()
+         ) {
             sleep 5
-            readyReplicas = sh(returnStdout: true, script: "oc get rc ${destApp}-${dc_version} --template={{.status.readyReplicas}}").trim()
-            expectedReplicas = sh(returnStdout: true, script: "oc get rc ${destApp}-${dc_version} --template={{.status.replicas}}").trim()
          }
       }
       
